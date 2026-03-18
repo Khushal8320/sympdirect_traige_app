@@ -1,0 +1,188 @@
+{
+  "rules": [
+    {
+      "id": "RED001",
+      "name": "Acute Coronary Syndrome",
+      "pattern": {
+        "requires_all": ["chest_pain", "shortness_of_breath"]
+      },
+      "ctas_override": 1,
+      "message": "Possible acute coronary syndrome: chest pain with dyspnea"
+    },
+    {
+      "id": "RED002",
+      "name": "Stroke Symptoms",
+      "pattern": {
+        "requires_any": ["unresponsive", "unconscious", "stroke", "motor_weakness", "mental_change"]
+      },
+      "ctas_override": 1,
+      "message": "Possible stroke or altered consciousness detected"
+    },
+    {
+      "id": "RED003",
+      "name": "Seizure Activity",
+      "pattern": {
+        "requires_any": ["seizure", "involuntary_movement"]
+      },
+      "ctas_override": 2,
+      "message": "Seizure or involuntary movement activity detected"
+    },
+    {
+      "id": "RED004",
+      "name": "Severe Respiratory Distress",
+      "pattern": {
+        "requires_all": ["shortness_of_breath"],
+        "requires_any": ["cyanosis", "choking", "stridor"]
+      },
+      "ctas_override": 1,
+      "message": "Severe respiratory distress with airway compromise"
+    },
+    {
+      "id": "RED005",
+      "name": "Massive Hemorrhage",
+      "pattern": {
+        "requires_any": ["hemorrhage", "hematemesis", "hematochezia", "major_bleeding"]
+      },
+      "ctas_override": 1,
+      "message": "Signs of significant hemorrhage or active bleeding"
+    },
+    {
+      "id": "RED006",
+      "name": "Anaphylaxis",
+      "pattern": {
+        "requires_any": ["anaphylaxis", "allergic_reaction_severe"],
+        "requires_all": ["swelling"]
+      },
+      "ctas_override": 1,
+      "message": "Possible anaphylactic reaction with swelling"
+    },
+    {
+      "id": "RED007",
+      "name": "Severe Pain with Cardiac Risk",
+      "pattern": {
+        "requires_any": ["chest_pain", "epigastric_pain"],
+        "pain_min": 9
+      },
+      "ctas_override": 1,
+      "message": "Severe pain (NRS >= 9) with cardiac risk location"
+    },
+    {
+      "id": "RED008",
+      "name": "Pediatric Fever Emergency",
+      "pattern": {
+        "requires_any": ["fever", "high_temperature"],
+        "age_max": 3
+      },
+      "ctas_override": 2,
+      "message": "Fever in young pediatric patient (age <= 3)"
+    },
+    {
+      "id": "RED009",
+      "name": "Syncope with Cardiac History",
+      "pattern": {
+        "requires_all": ["syncope"],
+        "requires_any": ["chest_pain", "palpitation", "shortness_of_breath"]
+      },
+      "ctas_override": 1,
+      "message": "Syncope with associated cardiac symptoms"
+    },
+    {
+      "id": "RED010",
+      "name": "Severe Burn",
+      "pattern": {
+        "requires_any": ["burn", "inhalation_injury"],
+        "severity_min": "severe_burn"
+      },
+      "ctas_override": 1,
+      "message": "Severe burn or inhalation injury detected"
+    }
+  ],
+  "vital_thresholds": [
+    {
+      "vital": "SBP",
+      "condition": "lt",
+      "value": 90,
+      "ctas_override": 1,
+      "reason": "Hypotension: SBP < 90 mmHg"
+    },
+    {
+      "vital": "SBP",
+      "condition": "gt",
+      "value": 180,
+      "ctas_override": 2,
+      "reason": "Hypertensive crisis: SBP > 180 mmHg"
+    },
+    {
+      "vital": "HR",
+      "condition": "lt",
+      "value": 40,
+      "ctas_override": 1,
+      "reason": "Severe bradycardia: HR < 40 bpm"
+    },
+    {
+      "vital": "HR",
+      "condition": "gt",
+      "value": 120,
+      "ctas_override": 2,
+      "reason": "Tachycardia: HR > 120 bpm"
+    },
+    {
+      "vital": "RR",
+      "condition": "gt",
+      "value": 30,
+      "ctas_override": 2,
+      "reason": "Tachypnea: RR > 30 breaths/min"
+    },
+    {
+      "vital": "BT",
+      "condition": "lt",
+      "value": 36,
+      "ctas_override": 2,
+      "reason": "Hypothermia: BT < 36°C"
+    },
+    {
+      "vital": "BT",
+      "condition": "gt",
+      "value": 39,
+      "ctas_override": 2,
+      "reason": "High fever: BT > 39°C"
+    },
+    {
+      "vital": "Saturation",
+      "condition": "lt",
+      "value": 90,
+      "ctas_override": 1,
+      "reason": "Severe hypoxia: SpO2 < 90%"
+    }
+  ],
+  "symptom_lexicon": {
+    "chest_pain": ["chest pain", "chest tightness", "crushing chest", "chest discomfort", "cp", "substernal pain"],
+    "shortness_of_breath": ["shortness of breath", "dyspnea", "difficulty breathing", "sob", "breathlessness", "respiratory distress"],
+    "syncope": ["syncope", "fainting", "loss of consciousness", "passed out", "fainted"],
+    "seizure": ["seizure", "seizure like activity", "convulsion", "fitting", "post seizure"],
+    "involuntary_movement": ["involuntary movement", "involuntary movt", "tremor", "twitching"],
+    "unresponsive": ["unresponsive", "not responding", "no response"],
+    "unconscious": ["unconscious", "unresponsive", "comatose", "coma"],
+    "stroke": ["stroke", "cva", "cerebrovascular"],
+    "motor_weakness": ["motor weakness", "hemiparesis", "hemiplegia", "weakness one side", "side motor weakness"],
+    "mental_change": ["mental change", "altered mental status", "confusion", "confused", "disoriented", "ams"],
+    "fever": ["fever", "febrile", "high temperature", "pyrexia"],
+    "high_temperature": ["high temperature", "hyperthermia", "fever"],
+    "palpitation": ["palpitation", "palpitations", "heart racing", "irregular heartbeat"],
+    "hemorrhage": ["hemorrhage", "massive bleeding", "exsanguination"],
+    "hematemesis": ["hematemesis", "vomiting blood", "blood vomit"],
+    "hematochezia": ["hematochezia", "bloody stool", "rectal bleeding", "blood in stool"],
+    "major_bleeding": ["major bleeding", "severe bleeding", "active bleeding", "hemorrhaging"],
+    "epigastric_pain": ["epigastric pain", "upper abdominal pain", "acute epigastric pain"],
+    "burn": ["burn", "thermal burn", "chemical burn", "scald"],
+    "severe_burn": ["severe burn", "third degree burn", "major burn", "extensive burn"],
+    "inhalation_injury": ["inhalation injury", "smoke inhalation", "airway burn"],
+    "anaphylaxis": ["anaphylaxis", "anaphylactic shock", "anaphylactic reaction"],
+    "allergic_reaction_severe": ["severe allergic reaction", "allergic emergency", "severe allergy"],
+    "swelling": ["swelling", "angioedema", "edema", "swollen", "swelling facial"],
+    "cyanosis": ["cyanosis", "cyanotic", "blue lips", "blue skin"],
+    "choking": ["choking", "airway obstruction", "foreign body airway"],
+    "stridor": ["stridor", "inspiratory stridor", "upper airway noise"]
+  },
+  "fail_mode": "escalate"
+}

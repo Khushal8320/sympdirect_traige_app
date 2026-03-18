@@ -28,3 +28,5 @@ xgboost
 catboost
 joblib
 requests
+pytest
+pytest-cov

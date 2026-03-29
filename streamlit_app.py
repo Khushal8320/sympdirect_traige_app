@@ -16,6 +16,11 @@ try:
 except ImportError:
     SHAP_AVAILABLE = False
 
+from database import init_db, save_prediction, save_training_log, get_all_predictions, get_prediction_detail, get_training_logs, get_prediction_stats, delete_prediction
+
+# Initialize database on startup
+init_db()
+
 # Page configuration
 st.set_page_config(
     page_title="Emergency Triage AI",
@@ -37,7 +42,7 @@ st.markdown("""
 st.sidebar.title("🏥 Emergency Triage App")
 page = st.sidebar.radio(
     "Select a section:",
-    ["📊 Data Exploration", "🤖 Model Training", "🔮 Make Prediction", "📈 Model Performance"]
+    ["📊 Data Exploration", "🤖 Model Training", "🔮 Make Prediction", "📈 Model Performance", "🗃️ Prediction History"]
 )
 
 # Load data function
@@ -202,6 +207,13 @@ elif page == "🤖 Model Training":
                 model_path = f"models/{model_name.lower().replace(' ', '_')}_model.pkl"
                 with open(model_path, 'wb') as f:
                     pickle.dump(result['model'], f)
+                save_training_log(
+                    model_name=model_name,
+                    accuracy=result['accuracy'],
+                    test_size=test_size,
+                    training_samples=len(X_train),
+                    test_samples=len(X_test)
+                )
             st.success("✅ Models trained and saved! Go to 'Make Prediction' to use them.")
 
 # ======================== PAGE: MAKE PREDICTION ========================
@@ -351,6 +363,14 @@ elif page == "🔮 Make Prediction":
                         </div>
                         """, unsafe_allow_html=True)
 
+                # ── Save to Database ──
+                save_prediction(
+                    model_used=selected_model,
+                    ktas_score=prediction,
+                    recommendation=cfg["action"],
+                    patient_data=input_data
+                )
+
                 # ── Section 2: SHAP Explanation ──
                 st.markdown("---")
                 st.subheader("Why We're Recommending This")
@@ -474,6 +494,102 @@ elif page == "📈 Model Performance":
                 report = classification_report(y_test, y_pred, output_dict=True)
                 report_df = pd.DataFrame(report).transpose()
                 st.dataframe(report_df, use_container_width=True)
+
+# ======================== PAGE: PREDICTION HISTORY ========================
+elif page == "🗃️ Prediction History":
+    st.title("🗃️ Prediction History")
+
+    stats = get_prediction_stats()
+
+    # ── Summary Metrics ──
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Predictions", stats["total"])
+    with col2:
+        urgent = sum(cnt for ktas, cnt in stats["by_ktas"] if ktas in [1, 2])
+        st.metric("Urgent Cases (CTAS 1–2)", urgent)
+    with col3:
+        non_urgent = sum(cnt for ktas, cnt in stats["by_ktas"] if ktas in [4, 5])
+        st.metric("Non-Urgent Cases (CTAS 4–5)", non_urgent)
+
+    st.markdown("---")
+
+    # ── KTAS Distribution ──
+    if stats["by_ktas"]:
+        st.subheader("Predictions by KTAS Level")
+        ktas_labels = {1: "CTAS 1 - Call 911", 2: "CTAS 2 - ER", 3: "CTAS 3 - Urgent Care",
+                       4: "CTAS 4 - See Doctor", 5: "CTAS 5 - Telehealth"}
+        ktas_colors = {1: "#CC0000", 2: "#FF4500", 3: "#FFA500", 4: "#28A745", 5: "#007BFF"}
+
+        ktas_df = pd.DataFrame(stats["by_ktas"], columns=["KTAS", "Count"])
+        ktas_df["Label"] = ktas_df["KTAS"].map(ktas_labels)
+        ktas_df["Color"] = ktas_df["KTAS"].map(ktas_colors)
+
+        fig, ax = plt.subplots(figsize=(9, 4))
+        bars = ax.bar(ktas_df["Label"], ktas_df["Count"], color=ktas_df["Color"])
+        ax.set_title("Prediction Distribution by KTAS Level")
+        ax.set_ylabel("Count")
+        plt.xticks(rotation=15, ha='right')
+        for bar, count in zip(bars, ktas_df["Count"]):
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.1,
+                    str(count), ha='center', va='bottom', fontweight='bold')
+        st.pyplot(fig)
+
+    st.markdown("---")
+
+    # ── All Records Table ──
+    st.subheader("All Prediction Records")
+    df_history = get_all_predictions()
+
+    if df_history.empty:
+        st.info("No predictions saved yet. Go to 'Make Prediction' and get a recommendation.")
+    else:
+        # Color-code recommendation column
+        recommendation_colors = {
+            "Call 911 Now": "🔴",
+            "Go to Emergency Room": "🟠",
+            "Visit Urgent Care Today": "🟡",
+            "See a Doctor Soon": "🟢",
+            "Connect with a Doctor Online": "🔵",
+        }
+        df_history["recommendation"] = df_history["recommendation"].apply(
+            lambda r: f"{recommendation_colors.get(r, '')} {r}"
+        )
+        df_history.columns = ["ID", "Timestamp", "Model Used", "KTAS Score", "Recommendation"]
+        st.dataframe(df_history, use_container_width=True, hide_index=True)
+
+        st.markdown("---")
+
+        # ── View Patient Detail ──
+        st.subheader("View Patient Details")
+        all_ids = get_all_predictions()["id"].tolist()
+        if all_ids:
+            selected_id = st.selectbox("Select Prediction ID:", all_ids)
+            detail = get_prediction_detail(selected_id)
+            if detail:
+                st.dataframe(pd.DataFrame([detail]), use_container_width=True)
+
+        st.markdown("---")
+
+        # ── Training Logs ──
+        st.subheader("Model Training Logs")
+        df_logs = get_training_logs()
+        if df_logs.empty:
+            st.info("No training runs logged yet.")
+        else:
+            df_logs.columns = ["ID", "Timestamp", "Model", "Accuracy", "Test Size", "Train Samples", "Test Samples"]
+            df_logs["Accuracy"] = df_logs["Accuracy"].apply(lambda x: f"{x:.2%}")
+            st.dataframe(df_logs, use_container_width=True, hide_index=True)
+
+        st.markdown("---")
+
+        # ── Delete a Record ──
+        st.subheader("Delete a Record")
+        del_id = st.number_input("Enter Prediction ID to delete:", min_value=1, step=1)
+        if st.button("Delete", key="delete_btn"):
+            delete_prediction(int(del_id))
+            st.success(f"✅ Prediction #{del_id} deleted.")
+            st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.info("🏥 This AI system assists in emergency triage prioritization using machine learning.")

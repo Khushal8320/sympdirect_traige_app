@@ -37,7 +37,7 @@ st.markdown("""
 st.sidebar.title("🏥 Emergency Triage App")
 page = st.sidebar.radio(
     "Select a section:",
-    ["📊 Data Exploration", "🤖 Model Training", "🔮 Make Prediction"]
+    ["📊 Data Exploration", "🤖 Model Training", "🔮 Make Prediction", "📈 Model Performance"]
 )
 
 # Load data function
@@ -435,6 +435,45 @@ elif page == "🔮 Make Prediction":
                         {dot} <span style="color:{color}; font-size:0.97rem;">{sentence}</span>
                     </div>
                     """, unsafe_allow_html=True)
+
+# ======================== PAGE: MODEL PERFORMANCE ========================
+elif page == "📈 Model Performance":
+    st.title("📈 Model Performance Metrics")
+
+    df = load_data()
+    if df is not None:
+        target_col = [col for col in df.columns if 'KTAS' in col or 'triage' in col.lower()][0]
+        X = df.drop(columns=[col for col in df.columns if col == target_col or df[col].dtype == 'object'])
+        y = df[target_col]
+
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        models = train_models(X_train, y_train)
+
+        st.subheader("Detailed Model Evaluation")
+        for model_name, model in models.items():
+            with st.expander(f"📊 {model_name} Details", expanded=True):
+                y_pred = model.predict(X_test)
+
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Accuracy", f"{accuracy_score(y_test, y_pred):.4f}")
+                with col2:
+                    st.metric("Samples Tested", len(X_test))
+                with col3:
+                    st.metric("Classes", len(np.unique(y_test)))
+
+                fig, ax = plt.subplots(figsize=(8, 6))
+                cm = confusion_matrix(y_test, y_pred)
+                sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax)
+                ax.set_title(f"{model_name} - Confusion Matrix")
+                ax.set_ylabel("True Label")
+                ax.set_xlabel("Predicted Label")
+                st.pyplot(fig)
+
+                st.subheader("Classification Report")
+                report = classification_report(y_test, y_pred, output_dict=True)
+                report_df = pd.DataFrame(report).transpose()
+                st.dataframe(report_df, use_container_width=True)
 
 st.sidebar.markdown("---")
 st.sidebar.info("🏥 This AI system assists in emergency triage prioritization using machine learning.")

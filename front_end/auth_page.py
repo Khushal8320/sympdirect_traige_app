@@ -12,7 +12,7 @@ import streamlit as st
 from config import DEFAULTS
 from logic import hash_pw
 from ui_helpers import inject_css, top_bar, sp, alert, card_wrap
-from db_helper import create_user, login_user
+from db_helper import create_user, login_user, get_user_id_by_email
 from database import create_tables
 
 create_tables()
@@ -119,27 +119,32 @@ def auth_page():
             submitted = st.form_submit_button("Sign In  →", use_container_width=True)
 
         if submitted:
+            # ✅ Coerce to string — prevents TypeError if Streamlit yields unexpected type
+            email_in = str(email_in).strip() if email_in is not None else ""
+            pw_in    = str(pw_in).strip()    if pw_in    is not None else ""
+
             if not email_in or not pw_in:
                 st.session_state.auth_error = "Please enter both email and password."
-            elif "@" not in email_in:
-                st.session_state.auth_error = "Please enter a valid email address."
+            elif "@" not in email_in or "." not in email_in.split("@")[-1]:
+                st.session_state.auth_error = "Please enter a valid email address (e.g. doctor@hospital.org)."
             else:
-                user = login_user(email_in, pw_in)
+                user_id = login_user(email_in, pw_in)
 
-                if user is None:
-                    existing_user = login_user(email_in)
-
-                    if existing_user is None:
+                if user_id is None:
+                    # Check if the email even exists to give the right error message
+                    if get_user_id_by_email(email_in) is None:
                         st.session_state.auth_error = "No account found with this email."
                     else:
                         st.session_state.auth_error = "Incorrect password."
                 else:
+                    # ✅ user_id stored so form_page can save assessments
                     st.session_state.update(
                         page="form",
                         email=email_in,
                         is_guest=False,
                         auth_error="",
-                         # Debugging line
+                        auth_success="",
+                        user_id=user_id,
                     )
                     st.rerun()
 
@@ -171,28 +176,39 @@ def auth_page():
               
 
         if submitted_r:
+            # ✅ Coerce inputs to string to prevent TypeError on unexpected types
+            reg_email = str(reg_email).strip() if reg_email is not None else ""
+            reg_pw    = str(reg_pw).strip()    if reg_pw    is not None else ""
+            reg_pw2   = str(reg_pw2).strip()   if reg_pw2   is not None else ""
+
             err = ""
             if not reg_email or not reg_pw or not reg_pw2:
                 err = "All fields are required."
-            elif "@" not in reg_email:
-                err = "Please enter a valid email address."
+            elif "@" not in reg_email or "." not in reg_email.split("@")[-1]:
+                err = "Please enter a valid email address (e.g. doctor@hospital.org)."
             elif len(reg_pw) < 6:
                 err = "Password must be at least 6 characters."
             elif reg_pw != reg_pw2:
                 err = "Passwords do not match."
-            elif reg_email in st.session_state.users_db:
+            elif get_user_id_by_email(reg_email) is not None:
+                # ✅ Check the database — not the in-memory dict which is wiped on restart
                 err = "Email already registered."
             if err:
                 st.session_state.auth_error = err
             else:
-                # ✅ Persist new user in shared users_db
-                st.session_state.users_db[reg_email] = hash_pw(reg_pw)
-                create_user(reg_email, reg_pw)
-                st.session_state.update(
-                    auth_mode="login",
-                    auth_success="Account created — you can now sign in.",
-                    auth_error="",
-                )
+                success = create_user(reg_email, reg_pw)
+                if not success:
+                    # Race condition: another session registered same email between the check above and now
+                    st.session_state.auth_error = "Email already registered."
+                else:
+                    # Keep users_db in sync for the current session
+                    from logic import hash_pw
+                    st.session_state.users_db[reg_email] = hash_pw(reg_pw)
+                    st.session_state.update(
+                        auth_mode="login",
+                        auth_success="Account created — you can now sign in.",
+                        auth_error="",
+                    )
                 st.rerun()
            
 
